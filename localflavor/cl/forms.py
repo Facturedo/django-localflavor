@@ -4,13 +4,13 @@ Chile specific form helpers.
 
 from __future__ import absolute_import, unicode_literals
 
+from django import forms
 from django.core.validators import EMPTY_VALUES
-from django.forms import ValidationError
 from django.forms.fields import RegexField, Select
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import smart_text
 
-from .cl_regions import REGION_CHOICES
+from .cl_territory import REGION_CHOICES, PROVINCE_CHOICES, COMMUNE_CHOICES
 
 
 class CLRegionSelect(Select):
@@ -20,6 +20,61 @@ class CLRegionSelect(Select):
     """
     def __init__(self, attrs=None):
         super(CLRegionSelect, self).__init__(attrs, choices=REGION_CHOICES)
+
+
+class CLProvinceSelect(Select):
+    """
+    A Select widget that uses a list of Chilean Provinces (Provincias)
+    as its choices.
+    """
+    def __init__(self, attrs=None):
+        super(CLProvinceSelect, self).__init__(attrs, choices=PROVINCE_CHOICES)
+
+
+class CLCommuneSelect(Select):
+    """
+    A Select widget that uses a list of Chilean Communes (Comunas)
+    as its choices.
+    """
+    def __init__(self, attrs=None):
+        super(CLCommuneSelect, self).__init__(attrs, choices=COMMUNE_CHOICES)
+
+
+class CLLocationField(forms.MultiValueField):
+    def __init__(self, *args, **kwargs):
+        error_messages = {
+            'incomplete': 'Enter a valid location.',
+            }
+        fields = (
+            forms.CharField(),
+            forms.CharField(),
+            forms.CharField()
+            )
+        super(CLLocationField, self).__init__(error_messages=error_messages,
+                                              fields=fields,
+                                              require_all_fields=False, *args, **kwargs)
+
+    def compress(self, data_list):
+        return data_list[-1]
+
+
+class CLLocationWidget(forms.widgets.MultiWidget):
+    def __init__(self, attrs=None):
+        _widgets = (
+            CLRegionSelect(),
+            CLProvinceSelect(),
+            CLCommuneSelect(),
+            )
+        super(CLLocationWidget, self).__init__(_widgets, attrs)
+
+    def decompress(self, value):
+        if value:
+            return [value[:2], value[:3], value]
+        else:
+            return []
+
+    class Media:
+        js = ('localflavor/cl/js/cl_location_widget.js',)
 
 
 class CLRutField(RegexField):
@@ -58,7 +113,7 @@ class CLRutField(RegexField):
         if self._algorithm(rut) == verificador:
             return self._format(rut, verificador)
         else:
-            raise ValidationError(self.error_messages['checksum'])
+            raise forms.ValidationError(self.error_messages['checksum'])
 
     def _algorithm(self, rut):
         """
