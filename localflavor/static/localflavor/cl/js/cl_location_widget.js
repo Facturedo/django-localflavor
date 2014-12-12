@@ -39,3 +39,5 @@ province_select.onchange = function () {
         commune_select.appendChild(matches[i].cloneNode(true));
     }
 }
+
+region_select.onchange()
